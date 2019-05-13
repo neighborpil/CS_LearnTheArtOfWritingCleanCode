@@ -5,70 +5,88 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Web.UI.WebControls;
 
-namespace Project.UserControls
+namespace CleanCode.FullRefactoring
 {
     public class PostControl : System.Web.UI.UserControl
     {
-        private PostDbContext DBContext;
+        private readonly PostRepository _postRepository;
+        private readonly PostValidator _validator;
+        public Label PostBody { get; set; }
+        public Label PostTitle { get; set; }
+        public int? PostId { get; set; }
 
+        public PostControl()
+        {
+            _postRepository = new PostRepository();
+            _validator = new PostValidator();
+        }
 
         protected void Page_Load(object sender, EventArgs e)
         {
-            DBContext = new PostDbContext();
 
             if (Page.IsPostBack)
-            {
-                PostValidator validator = new PostValidator();
-                Post entity = new Post()
-                {
-                    // Map form fields to entity properties
-                    Id = Convert.ToInt32(PostId.Value),
-                    Title = PostTitle.Text.Trim(),
-                    Body = PostBody.Text.Trim()
-                };
-                ValidationResult results = validator.Validate(entity);
-
-                if (results.IsValid)
-                {
-                    // Save to the database and continue to the next page
-                    DBContext.Posts.Add(entity);
-                    DBContext.SaveChanges();
-                }
-                else
-                {
-                    BulletedList summary = (BulletedList)FindControl("ErrorSummary");
-
-                    // Display errors to the user
-                    foreach (var failure in results.Errors)
-                    {
-                        Label errorMessage = FindControl(failure.PropertyName + "Error") as Label;
-
-                        if (errorMessage == null)
-                        {
-                            summary.Items.Add(new ListItem(failure.ErrorMessage));
-                        }
-                        else
-                        {
-                            errorMessage.Text = failure.ErrorMessage;
-                        }
-                    }
-                }
-            }
+                TrySavePost();
             else
-            {
-                // Display form
-                Post entity = DBContext.Posts.SingleOrDefault(p => p.Id == Convert.ToInt32(Request.QueryString["id"]));
-                PostBody.Text = entity.Body;
-                PostTitle.Text = entity.Title;
+                DisplayPage();
+        }
 
+        private void TrySavePost()
+        {
+            var post = GetPost();
+            var results = _validator.Validate(post);
+
+            if (results.IsValid)
+                _postRepository.SavePost(post);
+            else
+                DisplayErrors(results);
+        }
+
+        private Post GetPost()
+        {
+            Post entity = new Post()
+            {
+                // Map form fields to entity properties
+                Id = Convert.ToInt32(PostId.Value),
+                Title = PostTitle.Text.Trim(),
+                Body = PostBody.Text.Trim()
+            };
+            return entity;
+        }
+
+        private void DisplayErrors(ValidationResult results)
+        {
+            var summery = GetSummeryControl();
+
+            // Display errors to the user
+            foreach (var failure in results.Errors)
+            {
+                Label label = GetErrorLabel(failure);
+
+                if (label == null)
+                    summery.Items.Add(new ListItem(failure.ErrorMessage));
+                else
+                    label.Text = failure.ErrorMessage;
             }
         }
 
-        public Label PostBody { get; set; }
+        private BulletedList GetSummeryControl()
+        {
+            BulletedList errorSummery = (BulletedList)FindControl("ErrorSummary");
+            return errorSummery;
+        }
 
-        public Label PostTitle { get; set; }
+        private Label GetErrorLabel(ValidationError failure)
+        {
+            return FindControl(failure.PropertyName + "Error") as Label;
+        }
 
-        public int? PostId { get; set; }
+        private void DisplayPage()
+        {
+            var postId = Convert.ToInt32(Request.QueryString["id"]);
+            var post = _postRepository.GetPost(postId);
+            PostBody.Text = post.Body;
+            PostTitle.Text = post.Title;
+        }
     }
 
     #region helpers

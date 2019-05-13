@@ -1,24 +1,22 @@
 ﻿using System;
-using System.Configuration;
 using System.Data;
-using System.Data.SqlClient;
 using System.IO;
 
 namespace FooFoo
 {
-    public class DataTableToCsvMapper
+    public class MemoryFileCreator
     {
-        public System.IO.MemoryStream Map(DataTable dataTable)
+        public System.IO.MemoryStream CreateMemoryFile(DataTable dataTable)
         {
-            MemoryStream ReturnStream = new MemoryStream();
+            var returnStream = new MemoryStream();
 
-            StreamWriter sw = new StreamWriter(ReturnStream);
-            WriteColumnNames(dataTable, sw);
+            StreamWriter sw = new StreamWriter(returnStream);
+            WriteColumn(dataTable, sw);
             WriteRows(dataTable, sw);
             sw.Flush();
             sw.Close();
 
-            return ReturnStream;
+            return returnStream;
         }
 
         private static void WriteRows(DataTable dt, StreamWriter sw)
@@ -36,24 +34,21 @@ namespace FooFoo
             for (int i = 0; i < dt.Columns.Count; i++)
             {
                 WriteCell(dr, i, sw);
-
-                WriteSeperatorIfRequired(dt, i, sw);
+                WriteSeparatorIfRequired(dt, sw, i);
             }
         }
 
-        private static void WriteSeperatorIfRequired(DataTable dt, int i, StreamWriter sw)
+        private static void WriteSeparatorIfRequired(DataTable dt, StreamWriter sw, int i)
         {
             if (i < dt.Columns.Count - 1)
-            {
                 sw.Write(",");
-            }
         }
 
         private static void WriteCell(DataRow dr, int i, StreamWriter sw)
         {
             if (!Convert.IsDBNull(dr[i]))
             {
-                string str = String.Format("\"{0:c}\"", dr[i].ToString()).Replace("\r\n", " ");
+                string str = $"\"{dr[i].ToString():c}\"".Replace("\r\n", " ");
                 sw.Write(str);
             }
             else
@@ -62,7 +57,7 @@ namespace FooFoo
             }
         }
 
-        private static void WriteColumnNames(DataTable dt, StreamWriter sw)
+        private static void WriteColumn(DataTable dt, StreamWriter sw)
         {
             for (int i = 0; i < dt.Columns.Count; i++)
             {
